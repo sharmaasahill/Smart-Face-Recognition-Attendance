@@ -1,0 +1,4 @@
+flask
+face-recognition
+opencv-python
+numpy
