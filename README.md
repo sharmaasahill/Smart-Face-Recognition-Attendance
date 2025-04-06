@@ -80,14 +80,14 @@ Open `http://localhost:3000` to explore the dashboard 💻
 
 ```mermaid
 graph TD;
-    A[Webcam Initialized] --> B[Face Detected using OpenCV];
-    B --> C[Landmarks Identified using face_recognition];
-    C --> D[Liveness Detection (Blink, Head, Mouth)];
-    D --> E[Encoding Matched with Known Faces];
-    E --> F[Attendance Marked if Liveness = Real];
-    F --> G[Data Stored in SQLite];
-    G --> H[Dashboard Fetches & Displays Data via REST API];
-    H --> I[Admin Manages Users and Logs];
+A[Webcam Initialized] --> B[Face Detected using OpenCV]
+B --> C[Landmarks Identified using face_recognition]
+C --> D[Liveness Detection - Blink / Head / Mouth]
+D --> E[Encoding Matched with Known Faces]
+E --> F[Attendance Marked if Liveness = Real]
+F --> G[Data Stored in SQLite]
+G --> H[Dashboard Fetches & Displays Data via REST API]
+H --> I[Admin Manages Users and Logs]
 ```
 
 ---
