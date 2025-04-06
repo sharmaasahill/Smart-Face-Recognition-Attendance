@@ -117,7 +117,7 @@ H --> I[Admin Manages Users and Logs]
 
 - 🔐 JWT Token Authentication for Admin
 - 🔒 Bcrypt Password Hashing
-- 🔜 2FA (Two-Factor Authentication) – Coming Soon!
+- 🔜 2FA (Two-Factor Authentication)
 
 ---
 
@@ -126,11 +126,11 @@ H --> I[Admin Manages Users and Logs]
 - [x] Zero-lag liveness detection with anti-spoofing
 - [x] Admin dashboard to view/delete users & logs
 - [x] JWT-secured admin login system
+- [x] Graphs for attendance trends
 - [ ] Export Logs to CSV/PDF
 - [ ] Cloud Deployment (with webcam access)
 - [ ] Email/SMS Alerts on Attendance
 - [ ] Multi-user admin access
-- [ ] Graphs for attendance trends
 - [ ] Webcam feed preview on dashboard
 
 ---
