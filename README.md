@@ -80,19 +80,27 @@ Open `http://localhost:3000` to explore the dashboard 💻
 
 ```mermaid
 graph TD;
-    A[Face Detected] --> B[Liveness Checks Passed];
-    B --> C[Attendance Marked];
-    C --> D[Stored in SQLite];
-    D --> E[Displayed on Dashboard];
+    A[Webcam Initialized] --> B[Face Detected using OpenCV];
+    B --> C[Landmarks Identified using face_recognition];
+    C --> D[Liveness Detection (Blink, Head, Mouth)];
+    D --> E[Encoding Matched with Known Faces];
+    E --> F[Attendance Marked if Liveness = Real];
+    F --> G[Data Stored in SQLite];
+    G --> H[Dashboard Fetches & Displays Data via REST API];
+    H --> I[Admin Manages Users and Logs];
 ```
 
 ---
 
 ## 🧩 Tech Stack
 
-| Frontend        | Backend       | AI/ML           | Database |
-|----------------|---------------|------------------|----------|
-| React + Tailwind CSS | Flask + REST API | OpenCV, face_recognition | SQLite |
+| Layer     | Technologies |
+|-----------|--------------|
+| 🎨 Frontend | React.js, Tailwind CSS, Axios, React Router |
+| 🔙 Backend | Flask, Flask-CORS, Flask-JWT, SQLite3 |
+| 🧠 AI/ML   | OpenCV, face_recognition, dlib landmarks, numpy |
+| 💾 Database | SQLite (with SQLAlchemy ORM) |
+| 🛡️ Security | JWT Tokens, Bcrypt Password Hashing |
 
 ---
 
@@ -109,16 +117,21 @@ graph TD;
 
 - 🔐 JWT Token Authentication for Admin
 - 🔒 Bcrypt Password Hashing
-- 🔜 2FA (Two-Factor Authentication)
+- 🔜 2FA (Two-Factor Authentication) – Coming Soon!
 
 ---
 
 ## 📌 Roadmap
 
-- [ ] Emotion Detection (Happy, Sad, Neutral)
+- [x] Zero-lag liveness detection with anti-spoofing
+- [x] Admin dashboard to view/delete users & logs
+- [x] JWT-secured admin login system
 - [ ] Export Logs to CSV/PDF
 - [ ] Cloud Deployment (with webcam access)
 - [ ] Email/SMS Alerts on Attendance
+- [ ] Multi-user admin access
+- [ ] Graphs for attendance trends
+- [ ] Webcam feed preview on dashboard
 
 ---
 
