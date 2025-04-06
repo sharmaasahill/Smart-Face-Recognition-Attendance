@@ -5,12 +5,16 @@ import random
 import smtplib
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
+import subprocess
+import os
+import shutil
 
 app = Flask(__name__)
 app.secret_key = "supersecretkey"  # Secret key for session handling
 CORS(app)  # Enable Cross-Origin Resource Sharing
 
 DB_NAME = "attendance.db"
+DATASET_DIR = "dataset"
 
 # Temporary storage for OTPs
 otp_storage = {}
@@ -91,7 +95,7 @@ def send_otp_email(username, otp):
 
     msg = MIMEMultipart()
     msg["From"] = EMAIL_ADDRESS
-    msg["To"] = ADMIN_EMAIL  # Updated to correct recipient email
+    msg["To"] = ADMIN_EMAIL
     msg["Subject"] = subject
     msg.attach(MIMEText(body, "plain"))
 
@@ -99,12 +103,69 @@ def send_otp_email(username, otp):
         server = smtplib.SMTP("smtp.gmail.com", 587)
         server.starttls()
         server.login(EMAIL_ADDRESS, EMAIL_PASSWORD)
-        server.sendmail(EMAIL_ADDRESS, ADMIN_EMAIL, msg.as_string())  # Corrected recipient
+        server.sendmail(EMAIL_ADDRESS, ADMIN_EMAIL, msg.as_string())
         server.quit()
         return True
     except Exception as e:
         print(f"[ERROR] Failed to send OTP: {e}")
         return False
+
+
+# Register new user: Capture dataset + Train model
+@app.route("/register", methods=["POST"])
+def register_user():
+    data = request.json
+    name = data.get("name")
+
+    if not name:
+        return jsonify({"success": False, "message": "Name is required"}), 400
+
+    try:
+        print(f"[INFO] Registering new user: {name}")
+
+        # Run dataset capture
+        subprocess.run(["python", "backend/capture_dataset.py", name], check=True)
+
+        # Retrain model
+        subprocess.run(["python", "backend/train_model.py"], check=True)
+
+        return jsonify({"success": True, "message": f"User '{name}' registered successfully!"})
+    except subprocess.CalledProcessError as e:
+        return jsonify({"success": False, "message": f"Error: {str(e)}"}), 500
+
+
+# =============================
+# NEW FEATURE: Manage Users
+# =============================
+
+# List all registered users (folders in dataset/)
+@app.route("/api/users", methods=["GET"])
+def list_users():
+    try:
+        users = [d for d in os.listdir(DATASET_DIR) if os.path.isdir(os.path.join(DATASET_DIR, d))]
+        return jsonify(users)
+    except Exception as e:
+        return jsonify({"error": f"Failed to list users: {str(e)}"}), 500
+
+
+# Delete a registered user (delete dataset folder & retrain)
+@app.route("/api/users/<username>", methods=["DELETE"])
+def delete_user(username):
+    try:
+        user_folder = os.path.join(DATASET_DIR, username)
+
+        if not os.path.exists(user_folder):
+            return jsonify({"error": "User not found"}), 404
+
+        # Delete folder
+        shutil.rmtree(user_folder)
+
+        # Retrain model
+        subprocess.run(["python", "backend/train_model.py"], check=True)
+
+        return jsonify({"message": f"User '{username}' deleted successfully"}), 200
+    except Exception as e:
+        return jsonify({"error": f"Failed to delete user: {str(e)}"}), 500
 
 
 if __name__ == '__main__':

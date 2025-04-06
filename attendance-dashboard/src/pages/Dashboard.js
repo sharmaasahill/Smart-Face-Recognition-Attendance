@@ -1,36 +1,92 @@
 import React, { useEffect, useState } from "react";
 import axios from "axios";
 import {
-    Container, Typography, Table, TableBody, TableCell, TableContainer, TableHead,
-    TableRow, Paper, Button, TextField, Box, Grid, Card, CardContent, Select, MenuItem
+    Container, Typography, Table, TableBody, TableCell, TableContainer,
+    TableHead, TableRow, Paper, Button, Box, Select, MenuItem, TextField
 } from "@mui/material";
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from "recharts";
 import LogoutIcon from '@mui/icons-material/Logout';
 import LightModeIcon from '@mui/icons-material/LightMode';
 import DarkModeIcon from '@mui/icons-material/DarkMode';
 
+// Embedded RegisterUser Component
+const RegisterUser = () => {
+    const [name, setName] = useState("");
+    const [status, setStatus] = useState("");
+
+    const handleRegister = async () => {
+        if (!name.trim()) {
+            setStatus("Name is required.");
+            return;
+        }
+
+        setStatus("Registering...");
+
+        try {
+            const response = await axios.post("http://localhost:5000/register", {
+                name,
+            });
+
+            if (response.data.success) {
+                setStatus(response.data.message);
+                setName("");
+            } else {
+                setStatus("Failed to register user.");
+            }
+        } catch (error) {
+            setStatus("Error during registration.");
+            console.error(error);
+        }
+    };
+
+    return (
+        <Box sx={{
+            mt: 4,
+            mb: 2,
+            width: "100%",
+            maxWidth: "600px",
+            backgroundColor: "#fff",
+            padding: 3,
+            borderRadius: 2,
+            boxShadow: 3
+        }}>
+            <Typography variant="h6" gutterBottom>Register New User</Typography>
+            <TextField
+                fullWidth
+                label="Full Name"
+                variant="outlined"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                sx={{ mb: 2 }}
+            />
+            <Button variant="contained" onClick={handleRegister}>
+                Register
+            </Button>
+            {status && (
+                <Typography sx={{ mt: 2, fontSize: "0.9rem", color: "#666" }}>
+                    {status}
+                </Typography>
+            )}
+        </Box>
+    );
+};
+
 const Dashboard = () => {
     const [attendance, setAttendance] = useState([]);
     const [filteredAttendance, setFilteredAttendance] = useState([]);
     const [darkMode, setDarkMode] = useState(true);
-    const [searchQuery, setSearchQuery] = useState("");
     const [selectedDate, setSelectedDate] = useState("");
     const [availableDates, setAvailableDates] = useState([]);
     const [chartData, setChartData] = useState([]);
 
-    useEffect(() => {
-        fetchAttendance();
-        const interval = setInterval(fetchAttendance, 5000);
-        return () => clearInterval(interval);
-    }, []);
-
     const fetchAttendance = () => {
         axios.get("http://127.0.0.1:5000/api/attendance")
             .then((response) => {
-                setAttendance(response.data);
-                extractUniqueDates(response.data);
-                filterByDate(response.data, selectedDate);
-                prepareChartData(response.data);
+                const data = response.data || [];
+                setAttendance(data);
+                extractUniqueDates(data);
+                filterByDate(data, selectedDate);
+                prepareChartData(data);
             })
             .catch((error) => console.error("Error fetching attendance data:", error));
     };
@@ -57,6 +113,12 @@ const Dashboard = () => {
         setChartData(formattedData);
     };
 
+    useEffect(() => {
+        fetchAttendance();
+        const interval = setInterval(fetchAttendance, 5000);
+        return () => clearInterval(interval);
+    }, [selectedDate]);
+
     return (
         <Container
             maxWidth={false}
@@ -73,7 +135,14 @@ const Dashboard = () => {
             }}
         >
             {/* Header */}
-            <Box sx={{ display: "flex", justifyContent: "space-between", width: "100%", maxWidth: "1200px", alignItems: "center", mb: 2 }}>
+            <Box sx={{
+                display: "flex",
+                justifyContent: "space-between",
+                width: "100%",
+                maxWidth: "1200px",
+                alignItems: "center",
+                mb: 2
+            }}>
                 <Typography variant="h4" fontWeight="600" sx={{ color: darkMode ? "#fff" : "#333" }}>
                     Attendance Dashboard
                 </Typography>
@@ -96,23 +165,35 @@ const Dashboard = () => {
                 </Box>
             </Box>
 
+            {/* Register Form */}
+            <RegisterUser />
+
             {/* Date Selector */}
             <Box sx={{ width: "100%", maxWidth: "1200px", mb: 3, textAlign: "center" }}>
-                <Typography variant="h6" sx={{ color: darkMode ? "#bbb" : "#333", mb: 1 }}>Select Date</Typography>
+                <Typography variant="h6" sx={{ color: darkMode ? "#bbb" : "#333", mb: 1 }}>
+                    Select Date
+                </Typography>
                 <Select
                     value={selectedDate}
-                    onChange={(e) => { setSelectedDate(e.target.value); filterByDate(attendance, e.target.value); }}
+                    onChange={(e) => {
+                        setSelectedDate(e.target.value);
+                        filterByDate(attendance, e.target.value);
+                    }}
                     sx={{
                         backgroundColor: darkMode ? "#222" : "#fff",
                         color: darkMode ? "#fff" : "#333",
                         width: "200px",
                     }}
                 >
-                    {availableDates.map((date, index) => (
-                        <MenuItem key={index} value={date}>
-                            {date}
-                        </MenuItem>
-                    ))}
+                    {availableDates && availableDates.length > 0 ? (
+                        availableDates.map((date, index) => (
+                            <MenuItem key={index} value={date}>
+                                {date}
+                            </MenuItem>
+                        ))
+                    ) : (
+                        <MenuItem value="">No Data</MenuItem>
+                    )}
                 </Select>
             </Box>
 
@@ -149,7 +230,7 @@ const Dashboard = () => {
                 </Table>
             </TableContainer>
 
-            {/* Attendance Trends Chart */}
+            {/* Attendance Trend Chart */}
             <Typography variant="h6" sx={{ color: darkMode ? "#bbb" : "#333", mt: 4 }}>Attendance Trends</Typography>
             <ResponsiveContainer width="100%" height={300}>
                 <LineChart data={chartData}>

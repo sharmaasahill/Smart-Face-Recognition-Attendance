@@ -6,6 +6,7 @@ import sqlite3
 import csv
 import os
 import time
+import pickle
 from datetime import datetime
 
 # Database Setup
@@ -67,29 +68,21 @@ initialize_database()
 # Load dlib's face detector and shape predictor
 print("[INFO] Loading face detection model...")
 detector = dlib.get_frontal_face_detector()
-predictor = dlib.shape_predictor("models/shape_predictor_68_face_landmarks.dat")  # Ensure the file exists
+predictor = dlib.shape_predictor("models/shape_predictor_68_face_landmarks.dat")
 
-# Load known face encodings
-known_faces = []
-known_names = []
-
-# Load Sahil's image from dataset
-try:
-    print("[INFO] Loading known faces...")
-    sahil_image = face_recognition.load_image_file("dataset/sahil.jpg")
-    sahil_encodings = face_recognition.face_encodings(sahil_image)
-
-    if sahil_encodings:
-        known_faces.append(sahil_encodings[0])
-        known_names.append("Sahil")
-        print("[INFO] Face encoding loaded for Sahil.")
-    else:
-        print("[ERROR] No face found in sahil.jpg.")
-        exit()
-
-except Exception as e:
-    print(f"[ERROR] Loading image failed: {e}")
+# Load known face encodings from trained data
+print("[INFO] Loading known face encodings...")
+encodings_file = "encodings.pickle"
+if not os.path.exists(encodings_file):
+    print("[ERROR] Encodings not found. Please run train_model.py first.")
     exit()
+
+with open(encodings_file, "rb") as f:
+    data = pickle.load(f)
+    known_faces = data["encodings"]
+    known_names = data["names"]
+
+print(f"[INFO] Loaded {len(known_names)} known faces.")
 
 # Function to calculate Eye Aspect Ratio (EAR) for blinking detection
 def eye_aspect_ratio(eye):
