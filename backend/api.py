@@ -8,6 +8,11 @@ from email.mime.multipart import MIMEMultipart
 import subprocess
 import os
 import shutil
+from flask import send_file
+import pandas as pd
+import cv2
+from flask import Response
+
 
 app = Flask(__name__)
 app.secret_key = "supersecretkey"  # Secret key for session handling
@@ -123,15 +128,20 @@ def register_user():
     try:
         print(f"[INFO] Registering new user: {name}")
 
+        # Dynamically resolve the absolute paths
+        capture_script = os.path.join(os.path.dirname(__file__), "capture_dataset.py")
+        train_script = os.path.join(os.path.dirname(__file__), "train_model.py")
+
         # Run dataset capture
-        subprocess.run(["python", "backend/capture_dataset.py", name], check=True)
+        subprocess.run(["python", capture_script, name], check=True)
 
         # Retrain model
-        subprocess.run(["python", "backend/train_model.py"], check=True)
+        subprocess.run(["python", train_script], check=True)
 
         return jsonify({"success": True, "message": f"User '{name}' registered successfully!"})
     except subprocess.CalledProcessError as e:
         return jsonify({"success": False, "message": f"Error: {str(e)}"}), 500
+
 
 
 # =============================
@@ -166,6 +176,39 @@ def delete_user(username):
         return jsonify({"message": f"User '{username}' deleted successfully"}), 200
     except Exception as e:
         return jsonify({"error": f"Failed to delete user: {str(e)}"}), 500
+    
+# Export to CSV
+@app.route('/api/export/csv', methods=['GET'])
+def export_csv():
+    conn = sqlite3.connect(DB_NAME)
+    df = pd.read_sql_query("SELECT * FROM attendance", conn)
+    conn.close()
+
+    csv_path = "exported_attendance.csv"
+    df.to_csv(csv_path, index=False)
+    return send_file(csv_path, as_attachment=True)
+
+# Export to PDF
+@app.route('/api/export/pdf', methods=['GET'])
+def export_pdf():
+    conn = sqlite3.connect(DB_NAME)
+    cursor = conn.cursor()
+    cursor.execute("SELECT id, name, date, time FROM attendance ORDER BY date DESC, time DESC")
+    rows = cursor.fetchall()
+    conn.close()
+
+    from fpdf import FPDF
+    pdf = FPDF()
+    pdf.add_page()
+    pdf.set_font("Arial", size=12)
+    pdf.cell(200, 10, txt="Attendance Logs", ln=True, align="C")
+
+    for row in rows:
+        pdf.cell(200, 10, txt=f"ID: {row[0]} | Name: {row[1]} | Date: {row[2]} | Time: {row[3]}", ln=True)
+
+    pdf_path = "exported_attendance.pdf"
+    pdf.output(pdf_path)
+    return send_file(pdf_path, as_attachment=True)
 
 
 if __name__ == '__main__':

@@ -68,7 +68,8 @@ initialize_database()
 # Load dlib's face detector and shape predictor
 print("[INFO] Loading face detection model...")
 detector = dlib.get_frontal_face_detector()
-predictor = dlib.shape_predictor("models/shape_predictor_68_face_landmarks.dat")
+MODEL_PATH = os.path.join(os.path.dirname(__file__), '..', 'models', 'shape_predictor_68_face_landmarks.dat')
+predictor = dlib.shape_predictor(os.path.abspath(MODEL_PATH))
 
 # Load known face encodings from trained data
 print("[INFO] Loading known face encodings...")

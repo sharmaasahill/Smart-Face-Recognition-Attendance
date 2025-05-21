@@ -3,7 +3,7 @@ import face_recognition
 import pickle
 import cv2
 
-def train_faces(dataset_dir="dataset", model_file="encodings.pickle"):
+def train_faces(dataset_dir = "dataset", model_file="encodings.pickle"):
     known_encodings = []
     known_names = []
 

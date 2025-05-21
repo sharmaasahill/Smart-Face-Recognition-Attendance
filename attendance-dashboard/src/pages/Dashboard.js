@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useCallback } from "react";
 import axios from "axios";
 import {
     Container, Typography, Table, TableBody, TableCell, TableContainer,
@@ -9,7 +9,10 @@ import LogoutIcon from '@mui/icons-material/Logout';
 import LightModeIcon from '@mui/icons-material/LightMode';
 import DarkModeIcon from '@mui/icons-material/DarkMode';
 
-// Embedded RegisterUser Component
+import jsPDF from "jspdf";
+import autoTable from "jspdf-autotable"; // ✅ Proper default import
+
+
 const RegisterUser = () => {
     const [name, setName] = useState("");
     const [status, setStatus] = useState("");
@@ -23,16 +26,9 @@ const RegisterUser = () => {
         setStatus("Registering...");
 
         try {
-            const response = await axios.post("http://localhost:5000/register", {
-                name,
-            });
-
-            if (response.data.success) {
-                setStatus(response.data.message);
-                setName("");
-            } else {
-                setStatus("Failed to register user.");
-            }
+            const response = await axios.post("http://localhost:5000/register", { name });
+            setStatus(response.data.success ? response.data.message : "Failed to register user.");
+            if (response.data.success) setName("");
         } catch (error) {
             setStatus("Error during registration.");
             console.error(error);
@@ -41,27 +37,15 @@ const RegisterUser = () => {
 
     return (
         <Box sx={{
-            mt: 4,
-            mb: 2,
-            width: "100%",
-            maxWidth: "600px",
-            backgroundColor: "#fff",
-            padding: 3,
-            borderRadius: 2,
-            boxShadow: 3
+            mt: 4, mb: 2, width: "100%", maxWidth: "600px",
+            backgroundColor: "#fff", padding: 3, borderRadius: 2, boxShadow: 3
         }}>
             <Typography variant="h6" gutterBottom>Register New User</Typography>
             <TextField
-                fullWidth
-                label="Full Name"
-                variant="outlined"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                sx={{ mb: 2 }}
+                fullWidth label="Full Name" variant="outlined"
+                value={name} onChange={(e) => setName(e.target.value)} sx={{ mb: 2 }}
             />
-            <Button variant="contained" onClick={handleRegister}>
-                Register
-            </Button>
+            <Button variant="contained" onClick={handleRegister}>Register</Button>
             {status && (
                 <Typography sx={{ mt: 2, fontSize: "0.9rem", color: "#666" }}>
                     {status}
@@ -79,7 +63,28 @@ const Dashboard = () => {
     const [availableDates, setAvailableDates] = useState([]);
     const [chartData, setChartData] = useState([]);
 
-    const fetchAttendance = () => {
+    const extractUniqueDates = useCallback((data) => {
+        const uniqueDates = [...new Set(data.map(entry => entry.date))];
+        setAvailableDates(uniqueDates);
+        if (!selectedDate && uniqueDates.length > 0) {
+            setSelectedDate(uniqueDates[0]);
+        }
+    }, [selectedDate]);
+
+    const filterByDate = (data, date) => {
+        const filtered = date ? data.filter(entry => entry.date === date) : data;
+        setFilteredAttendance(filtered);
+    };
+
+    const prepareChartData = (data) => {
+        const dateMap = {};
+        data.forEach(entry => {
+            dateMap[entry.date] = (dateMap[entry.date] || 0) + 1;
+        });
+        setChartData(Object.entries(dateMap).map(([date, count]) => ({ date, count })));
+    };
+
+    const fetchAttendance = useCallback(() => {
         axios.get("http://127.0.0.1:5000/api/attendance")
             .then((response) => {
                 const data = response.data || [];
@@ -89,61 +94,48 @@ const Dashboard = () => {
                 prepareChartData(data);
             })
             .catch((error) => console.error("Error fetching attendance data:", error));
+    }, [selectedDate, extractUniqueDates]);
+
+    const exportToCSV = () => {
+        const headers = ["ID", "Name", "Date", "Time"];
+        const rows = filteredAttendance.map(row => [row.id, row.name, row.date, row.time]);
+        let csv = [headers, ...rows].map(e => e.join(",")).join("\n");
+        const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement("a");
+        link.setAttribute("href", url);
+        link.setAttribute("download", "attendance.csv");
+        link.click();
     };
 
-    const extractUniqueDates = (data) => {
-        const uniqueDates = [...new Set(data.map(entry => entry.date))];
-        setAvailableDates(uniqueDates);
-        if (!selectedDate && uniqueDates.length > 0) {
-            setSelectedDate(uniqueDates[0]);
-        }
-    };
+    const exportToPDF = () => {
+        const doc = new jsPDF();
+        const tableColumn = ["ID", "Name", "Date", "Time"];
+        const tableRows = filteredAttendance.map(entry => [entry.id, entry.name, entry.date, entry.time]);
 
-    const filterByDate = (data, date) => {
-        const filteredData = date ? data.filter(entry => entry.date === date) : data;
-        setFilteredAttendance(filteredData);
-    };
-
-    const prepareChartData = (data) => {
-        const dateMap = {};
-        data.forEach(entry => {
-            dateMap[entry.date] = (dateMap[entry.date] || 0) + 1;
+        doc.text("Attendance Report", 14, 15);
+        autoTable(doc, {
+            head: [tableColumn],
+            body: tableRows,
+            startY: 20,
         });
-        const formattedData = Object.entries(dateMap).map(([date, count]) => ({ date, count }));
-        setChartData(formattedData);
+        doc.save("attendance_report.pdf");
     };
 
     useEffect(() => {
         fetchAttendance();
         const interval = setInterval(fetchAttendance, 5000);
         return () => clearInterval(interval);
-    }, [selectedDate]);
+    }, [fetchAttendance]);
 
     return (
-        <Container
-            maxWidth={false}
-            sx={{
-                minHeight: "100vh",
-                width: "100%",
-                background: darkMode ? "#111" : "#f5f5f5",
-                display: "flex",
-                flexDirection: "column",
-                alignItems: "center",
-                padding: "20px",
-                transition: "0.4s",
-                fontFamily: "'Poppins', sans-serif",
-            }}
-        >
+        <Container maxWidth={false} sx={{
+            minHeight: "100vh", background: darkMode ? "#111" : "#f5f5f5",
+            display: "flex", flexDirection: "column", alignItems: "center", p: 3
+        }}>
             {/* Header */}
-            <Box sx={{
-                display: "flex",
-                justifyContent: "space-between",
-                width: "100%",
-                maxWidth: "1200px",
-                alignItems: "center",
-                mb: 2
-            }}>
-                <Typography variant="h4" fontWeight="600" sx={{ color: darkMode ? "#fff" : "#333" }}>
+            <Box sx={{ display: "flex", justifyContent: "space-between", width: "100%", maxWidth: "1200px", mb: 2 }}>
+                <Typography variant="h4" fontWeight={600} sx={{ color: darkMode ? "#fff" : "#333" }}>
                     Attendance Dashboard
                 </Typography>
                 <Box>
@@ -152,12 +144,10 @@ const Dashboard = () => {
                     </Button>
                     <Button
                         variant="contained"
-                        onClick={() => (window.location.href = "/")}
+                        onClick={() => window.location.href = "/"}
                         sx={{
-                            background: "linear-gradient(135deg, #6a11cb, #2575fc)",
-                            color: "#fff",
-                            borderRadius: "8px",
-                            "&:hover": { background: "linear-gradient(135deg, #2575fc, #6a11cb)" },
+                            background: "linear-gradient(135deg, #6a11cb, #2575fc)", color: "#fff",
+                            borderRadius: 2, "&:hover": { background: "linear-gradient(135deg, #2575fc, #6a11cb)" }
                         }}
                     >
                         <LogoutIcon sx={{ mr: 1 }} /> Logout
@@ -185,11 +175,9 @@ const Dashboard = () => {
                         width: "200px",
                     }}
                 >
-                    {availableDates && availableDates.length > 0 ? (
+                    {availableDates.length > 0 ? (
                         availableDates.map((date, index) => (
-                            <MenuItem key={index} value={date}>
-                                {date}
-                            </MenuItem>
+                            <MenuItem key={index} value={date}>{date}</MenuItem>
                         ))
                     ) : (
                         <MenuItem value="">No Data</MenuItem>
@@ -197,17 +185,22 @@ const Dashboard = () => {
                 </Select>
             </Box>
 
+            {/* Export Buttons */}
+            <Box sx={{ mb: 2 }}>
+                <Button onClick={exportToCSV} variant="outlined" sx={{ mr: 2 }}>
+                    Export to CSV
+                </Button>
+                <Button onClick={exportToPDF} variant="outlined">
+                    Export to PDF
+                </Button>
+            </Box>
+
             {/* Attendance Table */}
-            <TableContainer
-                component={Paper}
-                sx={{
-                    width: "100%",
-                    maxWidth: "1200px",
-                    backgroundColor: darkMode ? "#222" : "#fff",
-                    borderRadius: "12px",
-                    overflow: "hidden",
-                }}
-            >
+            <TableContainer component={Paper} sx={{
+                width: "100%", maxWidth: "1200px",
+                backgroundColor: darkMode ? "#222" : "#fff",
+                borderRadius: 2, overflow: "hidden",
+            }}>
                 <Table>
                     <TableHead>
                         <TableRow sx={{ background: "linear-gradient(135deg, #6a11cb, #2575fc)" }}>
@@ -230,7 +223,7 @@ const Dashboard = () => {
                 </Table>
             </TableContainer>
 
-            {/* Attendance Trend Chart */}
+            {/* Chart */}
             <Typography variant="h6" sx={{ color: darkMode ? "#bbb" : "#333", mt: 4 }}>Attendance Trends</Typography>
             <ResponsiveContainer width="100%" height={300}>
                 <LineChart data={chartData}>
